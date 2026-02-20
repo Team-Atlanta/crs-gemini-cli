@@ -1,0 +1,29 @@
+# Version control
+.git/
+
+# Gemini CLI local settings
+.gemini/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+
+# Documentation (not needed in build)
+README.md
+
+# Keep agents/*.md -- they are GEMINI.md templates used at runtime
+
+# Environment files
+.env*
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Tags file
+tags
