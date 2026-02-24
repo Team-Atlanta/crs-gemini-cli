@@ -182,7 +182,17 @@ def process_povs(pov_paths: list[Path], source_dir: Path, agent,
 
     patches = list(PATCHES_DIR.glob("*.diff"))
     if patches:
-        logger.info("Patch produced: %s", [p.name for p in patches])
+        patch_names = [p.name for p in patches]
+        if len(patches) > 1:
+            logger.warning(
+                "Multiple patch files detected (%d): %s. Each file in %s is auto-submitted.",
+                len(patches), patch_names, PATCHES_DIR,
+            )
+        logger.warning(
+            "Submission is final: detected patch file(s) %s in %s. Submitted patches cannot be edited or resubmitted.",
+            patch_names, PATCHES_DIR,
+        )
+        logger.info("Patch produced: %s", patch_names)
         return True
 
     logger.warning("Agent did not produce a patch")
