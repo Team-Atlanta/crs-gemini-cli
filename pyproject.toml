@@ -7,6 +7,7 @@ name = "crs-gemini-cli"
 version = "1.0.0"
 description = "CRS using Gemini CLI for autonomous vulnerability patching"
 requires-python = ">=3.10"
+license = "MIT"
 dependencies = []
 
 [project.scripts]
