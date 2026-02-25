@@ -16,7 +16,7 @@ Given proof-of-vulnerability (POV) inputs that crash a target binary, the agent 
 │         │                                │                          │
 │         ▼                                ▼                          │
 │  3. Launch Gemini CLI agent with crash logs + GEMINI.md             │
-│     gemini -m <model> --approval-mode yolo                          │
+│     gemini -m <model> --approval-mode yolo -d <prompt>              │
 └─────────┬───────────────────────────────────────────────────────────┘
           │ -d: prompt with crash log paths
           ▼
