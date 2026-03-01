@@ -25,7 +25,7 @@ crs_run_phase:
     additional_env:
       # Set via compose yaml additional_env.
       CRS_AGENT: gemini_cli
-      # GEMINI_MODEL: gemini-2.5-pro  # Optional override (default if unset)
+      # GEMINI_MODEL: gemini-3-pro-preview  # Optional override (default if unset)
       # AGENT_TIMEOUT: "0"  # seconds, 0 = no limit (default)
   inc-builder-asan:
     run_snapshot: true

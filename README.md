@@ -53,7 +53,7 @@ Given proof-of-vulnerability (POV) inputs that crash a target binary, the agent 
 3. The agent autonomously analyzes crash logs, edits source, and uses **libCRS** tools (`apply-patch-build`, `run-pov`, `run-test`) to build and test patches through the builder sidecar — iterating until all POV variants pass.
 4. A verified `.diff` is written to `/patches/`, where a daemon auto-submits it to the oss-crs framework.
 
-The agent is language-agnostic — it edits source and generates diffs while the builder sidecar handles compilation. The sanitizer type (address, memory, undefined) is passed to the agent for context.
+The agent is language-agnostic — it edits source and generates diffs while the builder sidecar handles compilation. The sanitizer type (address, undefined) is passed to the agent for context.
 
 ## Project structure
 
@@ -97,7 +97,7 @@ crs-gemini-cli:
   llm_budget: 10
   additional_env:
     CRS_AGENT: gemini_cli
-    GEMINI_MODEL: gemini-2.5-pro
+    GEMINI_MODEL: gemini-3-pro-preview
 
 llm_config:
   litellm_config: /path/to/sample-litellm-config.yaml
@@ -118,14 +118,11 @@ crs-compose up -f crs-compose.yaml
 | Environment variable | Default | Description |
 |---|---|---|
 | `CRS_AGENT` | `gemini_cli` | Agent module name (maps to `agents/<name>.py`) |
-| `GEMINI_MODEL` | `gemini-2.5-pro` | Model passed to `gemini -m` (strips `gemini/` prefix if present) |
+| `GEMINI_MODEL` | `gemini-3-pro-preview` | Model passed to `gemini -m` (strips `gemini/` prefix if present) |
 | `AGENT_TIMEOUT` | `0` (no limit) | Agent timeout in seconds (0 = run until budget exhausted) |
 | `BUILDER_MODULE` | `inc-builder-asan` | Builder sidecar module name (must match a `run_snapshot` entry in crs.yaml) |
 
 Available models:
-- `gemini-2.5-pro`
-- `gemini-2.5-flash`
-- `gemini-2.5-flash-lite`
 - `gemini-3-pro-preview`
 - `gemini-3-flash-preview`
 
@@ -158,12 +155,13 @@ Submission is final once a `.diff` is written to `/patches/` and picked up by th
 
 The agent receives:
 - **source_dir** — clean git repo of the target project
-- **povs** — list of `(pov_path, crash_log)` tuples (variants of the same bug)
+- **povs** — list of POV file paths (may be empty)
+- **bug_candidates** — list of static finding files (SARIF/JSON/text; may be empty)
 - **harness** — harness name for `run-pov`
 - **patches_dir** — write verified `.diff` files here
 - **work_dir** — scratch space
 - **language** — target language (c, c++, jvm)
-- **sanitizer** — sanitizer type (address, memory, undefined)
+- **sanitizer** — sanitizer type (`address` or `undefined`)
 - **builder** — builder sidecar module name (keyword-only, required)
 - **ref_diff** — reference diff showing the bug-introducing change (delta mode only, None in full mode)
 
