@@ -2,7 +2,7 @@
 
 A [CRS](https://github.com/oss-crs) (Cyber Reasoning System) that uses [Gemini CLI](https://github.com/google-gemini/gemini-cli) to autonomously find and patch vulnerabilities in open-source projects.
 
-Given proof-of-vulnerability (POV) inputs that crash a target binary, the agent analyzes the crashes, edits source code, builds, tests, iterates, and submits a verified patch — all autonomously.
+Given any boot-time subset of vulnerability evidence (POVs, bug-candidate reports, diff files, and/or seeds), the agent analyzes the inputs, edits source code, builds, tests, iterates, and writes one final patch for submission.
 
 ## How it works
 
@@ -10,15 +10,15 @@ Given proof-of-vulnerability (POV) inputs that crash a target binary, the agent 
 ┌─────────────────────────────────────────────────────────────────────┐
 │ patcher.py (orchestrator)                                           │
 │                                                                     │
-│  1. Fetch POVs & source         2. Reproduce crashes                │
-│     crs.fetch(POV)                 libCRS run-pov (build-id: base)  │
-│     crs.download(src)              → crash_log_*.txt                │
-│         │                                │                          │
-│         ▼                                ▼                          │
-│  3. Launch Gemini CLI agent with crash logs + GEMINI.md             │
+│  1. Fetch startup inputs & source                                    │
+│     crs.fetch(POV/BUG_CANDIDATE/DIFF/SEED)                           │
+│     crs.download(src)                                                │
+│         │                                                            │
+│         ▼                                                            │
+│  2. Launch Gemini CLI agent with fetched paths + GEMINI.md           │
 │     gemini -m <model> --approval-mode yolo -d <prompt>              │
 └─────────┬───────────────────────────────────────────────────────────┘
-          │ -d: prompt with crash log paths
+          │ -d: prompt with startup evidence paths
           ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Gemini CLI (autonomous agent)                                       │
@@ -27,8 +27,8 @@ Given proof-of-vulnerability (POV) inputs that crash a target binary, the agent 
 │  │ Analyze  │───▶│   Fix    │───▶│   Verify     │                   │
 │  │          │    │          │    │              │                   │
 │  │ Read     │    │ Edit src │    │ apply-patch  │──▶ Builder        │
-│  │ crash    │    │ git diff │    │   -build     │    sidecar        │
-│  │ logs     │    │          │    │              │◀── build_id       │
+│  │ startup  │    │ git diff │    │   -build     │    sidecar        │
+│  │ evidence │    │          │    │              │◀── build_id       │
 │  └──────────┘    └──────────┘    │ run-pov ────│──▶ Builder        │
 │                                  │   (all POVs)│◀── pov_exit_code  │
 │                       ▲          │ run-test ───│──▶ Builder        │
@@ -43,22 +43,22 @@ Given proof-of-vulnerability (POV) inputs that crash a target binary, the agent 
           │
           ▼
 ┌─────────────────────────┐
-│ Submission daemon        │
-│ watches /patches/ ──────▶ oss-crs framework (auto-submit)
+│ patcher.py               │
+│ submit(first patch) ───▶ oss-crs framework
 └─────────────────────────┘
 ```
 
-1. **`run_patcher`** fetches POVs and source, reproduces all crashes against the unpatched binary via the builder sidecar.
-2. All POVs are batched as variants of the same vulnerability and handed to **Gemini CLI** in a single session with crash logs and `GEMINI.md` instructions.
-3. The agent autonomously analyzes crash logs, edits source, and uses **libCRS** tools (`apply-patch-build`, `run-pov`, `run-test`) to build and test patches through the builder sidecar — iterating until all POV variants pass.
-4. A verified `.diff` is written to `/patches/`, where a daemon auto-submits it to the oss-crs framework.
+1. **`run_patcher`** fetches available startup inputs (`POV`, `BUG_CANDIDATE`, `DIFF`, `SEED`) once, downloads source, and passes the fetched paths to the agent.
+2. The evidence is handed to **Gemini CLI** in a single session with generated `GEMINI.md` instructions. No additional inputs are fetched after startup.
+3. The agent autonomously analyzes evidence, edits source, and uses **libCRS** tools (`apply-patch-build`, `run-pov`, `run-test`) to iterate through the builder sidecar.
+4. When the first final `.diff` is written to `/patches/`, the patcher submits that single file with `crs.submit(DataType.PATCH, patch_path)` and exits. Later patch files or modifications are ignored.
 
 The agent is language-agnostic — it edits source and generates diffs while the builder sidecar handles compilation. The sanitizer type (`address` only in this CRS) is passed to the agent for context.
 
 ## Project structure
 
 ```
-patcher.py             # Patcher module: scan POVs → agent
+patcher.py             # Patcher module: one-time fetch of optional inputs → agent → first-patch submit
 pyproject.toml         # Package config (run_patcher entry point)
 bin/
   compile_target       # Builder phase: compiles the target project
@@ -121,6 +121,7 @@ crs-compose up -f crs-compose.yaml
 | `GEMINI_MODEL` | `gemini-3-pro-preview` | Model passed to `gemini -m` (strips `gemini/` prefix if present) |
 | `AGENT_TIMEOUT` | `0` (no limit) | Agent timeout in seconds (0 = run until budget exhausted) |
 | `BUILDER_MODULE` | `inc-builder-asan` | Builder sidecar module name (must match a `run_snapshot` entry in crs.yaml) |
+| `OSS_CRS_SNAPSHOT_IMAGE` | framework-provided | Required snapshot image reference used by patcher startup checks |
 
 Available models:
 - `gemini-3-pro-preview`
@@ -136,16 +137,16 @@ Debug artifacts:
 - Shared directory: `/root/.gemini` (registered as `gemini-home`)
 - Per-run logs: `/work/agent/gemini_stdout.log`, `/work/agent/gemini_stderr.log`
 
-## Patch validity
+## Patch submission
 
-A patch is submitted only when it meets all criteria:
+The agent is instructed to satisfy these criteria before writing a patch:
 
 1. **Builds** — compiles successfully
-2. **POVs don't crash** — all POV variants pass
+2. **POVs don't crash** — all provided POV variants pass (if POVs were provided)
 3. **Tests pass** — project test suite passes (or skipped if none exists)
 4. **Semantically correct** — fixes the root cause with a minimal patch
 
-Submission is final once a `.diff` is written to `/patches/` and picked up by the watcher. Submitted patches cannot be edited or resubmitted, so complete a full pre-submit review first.
+Runtime remains trust-based: the patcher does not re-run final verification. Once the first `.diff` is written to `/patches/`, the patcher submits that single file and exits. Submitted patches cannot be edited or resubmitted, so the agent should only write to `/patches/` when it considers the patch final.
 
 ## Adding a new agent
 
@@ -157,13 +158,16 @@ The agent receives:
 - **source_dir** — clean git repo of the target project
 - **povs** — list of POV file paths (may be empty)
 - **bug_candidates** — list of static finding files (SARIF/JSON/text; may be empty)
+- **diffs** — list of fetched diff file paths (may be empty)
+- **seeds** — list of fetched seed file paths (may be empty)
 - **harness** — harness name for `run-pov`
-- **patches_dir** — write verified `.diff` files here
+- **patches_dir** — write exactly one final `.diff` here
 - **work_dir** — scratch space
 - **language** — target language (c, c++, jvm)
 - **sanitizer** — sanitizer type (`address` only)
 - **builder** — builder sidecar module name (keyword-only, required)
-- **ref_diff** — reference diff showing the bug-introducing change (delta mode only, None in full mode)
+
+All optional inputs are boot-time only. The patcher fetches them once and passes concrete paths to the agent; no new POVs, bug-candidates, diff files, or seeds appear during the run.
 
 The agent has access to three libCRS commands (the `--builder` flag specifies which builder sidecar module to use):
 - `libCRS apply-patch-build <patch.diff> <response_dir> --builder <module>` — build a patch

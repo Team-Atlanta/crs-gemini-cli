@@ -17,7 +17,7 @@ from pathlib import Path
 logger = logging.getLogger("agent.gemini_cli")
 
 _raw_model = os.environ.get("GEMINI_MODEL", "gemini-3-pro-preview").strip()
-GEMINI_MODEL = _raw_model.removeprefix("gemini/")
+GEMINI_MODEL = _raw_model.removeprefix("gemini/").removeprefix("google/")
 
 # 0 = no timeout (run until budget is exhausted)
 try:
@@ -45,7 +45,6 @@ def _load_prompt_templates() -> dict[str, str]:
         "pov_absent": _load_section("pov_absent.md"),
         "bug_candidates_present": _load_section("bug_candidates_present.md"),
         "bug_candidates_absent": _load_section("bug_candidates_absent.md"),
-        "diff_present": _load_section("diff_present.md"),
         "pre_submit": _load_section("pre_submit.md"),
     }
 
@@ -77,18 +76,6 @@ def _changed_patches(
     """Return sorted patch names that are new or modified since snapshot."""
     now = _snapshot_patch_state(patches_dir)
     return sorted(name for name, state in now.items() if before.get(name) != state)
-
-
-def _make_fenced_block(body: str, language: str = "") -> str:
-    """Return a markdown fenced block with a safe backtick fence."""
-    fence_len = 3
-    while "`" * fence_len in body:
-        fence_len += 1
-    fence = "`" * fence_len
-    lang = language.strip()
-    if lang:
-        return f"{fence}{lang}\n{body}\n{fence}"
-    return f"{fence}\n{body}\n{fence}"
 
 
 def setup(source_dir: Path, config: dict) -> None:
@@ -130,10 +117,15 @@ def setup(source_dir: Path, config: dict) -> None:
     if "GEMINI.md" not in lines:
         lines.append("GEMINI.md")
     global_gitignore.write_text("\n".join(lines).rstrip("\n") + "\n")
-    subprocess.run(
+    git_cfg = subprocess.run(
         ["git", "config", "--global", "core.excludesFile", str(global_gitignore)],
         capture_output=True,
     )
+    if git_cfg.returncode != 0:
+        logger.warning(
+            "Failed to set global git excludesFile: %s",
+            git_cfg.stderr.decode(errors="replace") if isinstance(git_cfg.stderr, bytes) else git_cfg.stderr,
+        )
 
     logger.info("Agent setup complete")
 
@@ -142,6 +134,8 @@ def run(
     source_dir: Path,
     povs: list[Path],
     bug_candidates: list[Path],
+    diffs: list[Path],
+    seeds: list[Path],
     harness: str,
     patches_dir: Path,
     work_dir: Path,
@@ -149,7 +143,6 @@ def run(
     language: str = "c",
     sanitizer: str = "address",
     builder: str,
-    ref_diff: str | None = None,
 ) -> bool:
     """Launch Gemini CLI in agentic mode to autonomously fix the vulnerability.
 
@@ -194,23 +187,30 @@ def run(
     else:
         bug_candidate_section = templates["bug_candidates_absent"]
 
-    if ref_diff:
-        changed_files = [
-            line.split("b/", 1)[1]
-            for line in ref_diff.splitlines()
-            if line.startswith("+++ b/")
-        ]
-        changed_files_str = ", ".join(_md_inline(f) for f in changed_files) if changed_files else "(see diff)"
-        diff_section = templates["diff_present"].format(
-            changed_files_str=changed_files_str,
-            diff_block=_make_fenced_block(ref_diff, "diff"),
+    diff_list = "\n".join(f"- {_md_inline(str(p))}" for p in diffs)
+    if diff_list:
+        diff_section = (
+            "## Diff Files\n\n"
+            "Boot-time diff files were provided for this run:\n\n"
+            f"{diff_list}\n\n"
+            "Inspect any relevant diff files directly if they help localize the vulnerability.\n"
         )
     else:
         diff_section = ""
 
-    if ref_diff:
+    seed_list = "\n".join(f"- {_md_inline(str(p))}" for p in seeds)
+    if seed_list:
+        seed_section = (
+            "## Seed Files\n\n"
+            "Boot-time seed files were provided for this run:\n\n"
+            f"{seed_list}\n"
+        )
+    else:
+        seed_section = ""
+
+    if diffs:
         diff_validation_hint = (
-            "- [ ] Patch addresses the vulnerable change context from the reference diff\n"
+            "- [ ] Patch considers the provided diff context when relevant\n"
         )
     else:
         diff_validation_hint = ""
@@ -229,6 +229,7 @@ def run(
         workflow_section=workflow_section,
         pov_section=pov_section,
         bug_candidate_section=bug_candidate_section,
+        seed_section=seed_section,
         pre_submit_section=pre_submit_section,
         builder=builder,
         diff_section=diff_section,
@@ -243,7 +244,8 @@ def run(
         "Available evidence:",
         f"- POV variants: {len(povs)}",
         f"- Bug-candidate files: {len(bug_candidates)}",
-        f"- Reference diff: {'yes' if ref_diff else 'no'}",
+        f"- Diff files: {len(diffs)}",
+        f"- Seed files: {len(seeds)}",
     ]
     if povs:
         pov_files = " ".join(_md_inline(str(p)) for p in povs)
@@ -251,6 +253,12 @@ def run(
     if bug_candidates:
         bug_files = " ".join(_md_inline(str(p)) for p in bug_candidates)
         prompt_lines.append(f"- Bug-candidate report files: {bug_files}")
+    if diffs:
+        diff_files = " ".join(_md_inline(str(p)) for p in diffs)
+        prompt_lines.append(f"- Diff files: {diff_files}")
+    if seeds:
+        seed_files = " ".join(_md_inline(str(p)) for p in seeds)
+        prompt_lines.append(f"- Seed files: {seed_files}")
     prompt_lines.extend(
         [
             "",
