@@ -17,6 +17,10 @@ variable "VERSION" {
   default = "latest"
 }
 
+variable "GEMINI_CLI_VERSION" {
+  default = "0.28.2"
+}
+
 function "tags" {
   params = [name]
   result = [
@@ -46,4 +50,7 @@ target "gemini-cli-base" {
   context    = "."
   dockerfile = "oss-crs/base.Dockerfile"
   tags       = tags("gemini-cli-base")
+  args = {
+    GEMINI_CLI_VERSION = GEMINI_CLI_VERSION
+  }
 }

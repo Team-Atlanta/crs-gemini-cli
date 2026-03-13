@@ -22,7 +22,9 @@ crs-gemini-cli:
   memory: "16G"                                     # UPDATE: available memory
   llm_budget: 10                                    # LLM budget in USD
   additional_env:
-    # Override CRS defaults here. Available models:
+    # Override CRS defaults here. Optional prepare-phase CLI pin:
+    #   GEMINI_CLI_VERSION: 0.28.2
+    # Available models:
     #   gemini-3-pro-preview, gemini-3-flash-preview
     CRS_AGENT: gemini_cli
     GEMINI_MODEL: gemini-3-pro-preview

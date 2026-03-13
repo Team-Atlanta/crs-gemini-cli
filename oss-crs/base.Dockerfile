@@ -34,8 +34,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
+ARG GEMINI_CLI_VERSION=0.28.2
+
 # Gemini CLI (pinned to avoid breaking settings schema changes)
-RUN npm install -g @google/gemini-cli@0.28.2
+RUN npm install -g @google/gemini-cli@${GEMINI_CLI_VERSION}
 
 # Git config
 RUN git config --global user.email "crs@oss-crs.dev" \
