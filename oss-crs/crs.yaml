@@ -46,4 +46,3 @@ supported_target:
 
 required_llms:
   - gemini-3-pro-preview
-  - gemini-3-flash-preview
