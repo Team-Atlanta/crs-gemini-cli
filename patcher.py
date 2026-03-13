@@ -478,6 +478,9 @@ def main():
     except Exception as e:
         logger.warning("Seed fetch failed: %s — seeds unavailable", e)
 
+    # Register Gemini home as a log directory for post-run analysis.
+    # register-log-dir creates a symlink, so the path must not exist beforehand.
+    # Preserve existing Gemini home and restore it if registration fails.
     gemini_home = Path.home() / ".gemini"
     gemini_home_backup = gemini_home.with_name(".gemini.pre-crs-backup")
     had_existing_gemini_home = gemini_home.exists() or gemini_home.is_symlink()
@@ -488,12 +491,12 @@ def main():
         gemini_home.rename(gemini_home_backup)
 
     try:
-        crs.register_shared_dir(gemini_home, "gemini-home")
-        logger.info("Gemini home shared at %s", gemini_home)
+        crs.register_log_dir(gemini_home)
+        logger.info("Gemini home registered as log dir at %s", gemini_home)
         if gemini_home_backup.exists() or gemini_home_backup.is_symlink():
             logger.info("Preserved previous Gemini home backup at %s", gemini_home_backup)
     except Exception as e:
-        logger.warning("Failed to register gemini-home shared dir: %s", e)
+        logger.warning("Failed to register gemini-home log dir: %s", e)
         if gemini_home.exists() or gemini_home.is_symlink():
             if gemini_home.is_symlink() or gemini_home.is_file():
                 gemini_home.unlink()

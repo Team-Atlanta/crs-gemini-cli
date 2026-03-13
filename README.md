@@ -139,7 +139,7 @@ Available models:
 - **LiteLLM proxy**: Configured via `GOOGLE_GEMINI_BASE_URL` + `GEMINI_API_KEY` env vars
 
 Debug artifacts:
-- Shared directory: `/root/.gemini` (registered as `gemini-home`)
+- Log directory: `/root/.gemini` (registered via `register-log-dir`)
 - Per-run logs: `/work/agent/gemini_stdout.log`, `/work/agent/gemini_stderr.log`
 
 ## Patch submission
