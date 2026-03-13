@@ -16,7 +16,7 @@ Given any boot-time subset of vulnerability evidence (POVs, bug-candidate report
 │         │                                                            │
 │         ▼                                                            │
 │  2. Launch Gemini CLI agent with fetched paths + GEMINI.md           │
-│     gemini -m <model> --approval-mode yolo -d <prompt>              │
+│     gemini -m <model> --approval-mode yolo -d -p <prompt>           │
 └─────────┬───────────────────────────────────────────────────────────┘
           │ -d: prompt with startup evidence paths
           ▼
