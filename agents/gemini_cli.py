@@ -315,6 +315,11 @@ def run(
         logger.error("Error running Gemini CLI: %s", e)
         return False
 
+    subprocess.run(
+        ["chmod", "-R", "og+rX", str(Path.home() / ".gemini")],
+        capture_output=True,
+    )
+
     if proc.returncode != 0:
         logger.warning("Gemini CLI failed (rc=%d), see %s", proc.returncode, stderr_log)
 

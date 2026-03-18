@@ -39,6 +39,11 @@ def test_run_uses_prompt_flag_for_non_interactive_mode(
     )
     monkeypatch.setattr(gemini_cli, "_snapshot_patch_state", lambda patches_dir: {})
     monkeypatch.setattr(gemini_cli, "_changed_patches", lambda before, patches_dir: [])
+    monkeypatch.setattr(
+        gemini_cli.subprocess,
+        "run",
+        lambda *args, **kwargs: type("R", (), {"returncode": 0, "stderr": b""})(),
+    )
 
     popen_calls: list[list[str]] = []
 

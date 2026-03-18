@@ -12,7 +12,7 @@ __pycache__/
 # Documentation (not needed in build)
 README.md
 
-# Keep agents/*.md -- they are GEMINI.md templates used at runtime
+# Keep agents/*.md — they are GEMINI.md templates used at runtime
 
 # Environment files
 .env*
