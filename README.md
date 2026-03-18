@@ -65,6 +65,7 @@ bin/
 agents/
   gemini_cli.py        # Gemini CLI agent (default)
   gemini_cli.md        # GEMINI.md template with libCRS tool docs
+  sections/            # Dynamic GEMINI.md section partial templates
   template.py          # Stub for creating new agents
 oss-crs/
   crs.yaml             # CRS metadata (supported languages, models, etc.)
@@ -125,7 +126,7 @@ crs-compose up -f crs-compose.yaml
 | `CRS_AGENT` | `gemini_cli` | Agent module name (maps to `agents/<name>.py`) |
 | `GEMINI_MODEL` | `gemini-3-pro-preview` | Model passed to `gemini -m` (strips `gemini/` prefix if present) |
 | `AGENT_TIMEOUT` | `0` (no limit) | Agent timeout in seconds (0 = run until budget exhausted) |
-| `BUILDER_MODULE` | `inc-builder-asan` | Builder sidecar module name (must match a `run_snapshot` entry in crs.yaml) |
+| `BUILDER_MODULE` | `inc-builder` | Builder sidecar module name (must match a `run_snapshot` entry in crs.yaml) |
 | `OSS_CRS_SNAPSHOT_IMAGE` | framework-provided | Required snapshot image reference used by patcher startup checks |
 
 Available models:
@@ -160,6 +161,10 @@ Runtime remains trust-based: the patcher does not re-run final verification. Onc
 3. Set `CRS_AGENT=my_agent`.
 
 The agent receives:
+- **setup(source_dir, config)** config keys:
+  - `llm_api_url` — optional LiteLLM base URL
+  - `llm_api_key` — optional LiteLLM key
+  - `gemini_home` — path for Gemini CLI state/logs
 - **source_dir** — clean git repo of the target project
 - **pov_dir** — boot-time POV input directory (may be empty)
 - **bug_candidate_dir** — boot-time bug-candidate directory (may be empty)

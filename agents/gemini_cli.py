@@ -42,10 +42,10 @@ def _load_prompt_templates() -> dict[str, str]:
         "workflow_pov": _load_section("workflow_pov.md"),
         "workflow_static": _load_section("workflow_static.md"),
         "pov_present": _load_section("pov_present.md"),
-        "pov_absent": _load_section("pov_absent.md"),
         "bug_candidates_present": _load_section("bug_candidates_present.md"),
-        "bug_candidates_absent": _load_section("bug_candidates_absent.md"),
         "pre_submit": _load_section("pre_submit.md"),
+        "diff_present": _load_section("diff_present.md"),
+        "seed_present": _load_section("seed_present.md"),
     }
 
 
@@ -124,15 +124,18 @@ def setup(source_dir: Path, config: dict) -> None:
     if "GEMINI.md" not in lines:
         lines.append("GEMINI.md")
     global_gitignore.write_text("\n".join(lines).rstrip("\n") + "\n")
-    git_cfg = subprocess.run(
-        ["git", "config", "--global", "core.excludesFile", str(global_gitignore)],
-        capture_output=True,
-    )
-    if git_cfg.returncode != 0:
-        logger.warning(
-            "Failed to set global git excludesFile: %s",
-            git_cfg.stderr.decode(errors="replace") if isinstance(git_cfg.stderr, bytes) else git_cfg.stderr,
+    try:
+        git_cfg = subprocess.run(
+            ["git", "config", "--global", "core.excludesFile", str(global_gitignore)],
+            capture_output=True,
         )
+        if git_cfg.returncode != 0:
+            logger.warning(
+                "Failed to set global git excludesFile: %s",
+                git_cfg.stderr.decode(errors="replace") if isinstance(git_cfg.stderr, bytes) else git_cfg.stderr,
+            )
+    except OSError as e:
+        logger.warning("Failed to run git config for excludesFile: %s", e)
 
     logger.info("Agent setup complete")
 
@@ -187,7 +190,7 @@ def run(
         workflow_section = templates["workflow_pov"]
         pre_submit_pov = "- [ ] `pov_exit_code` = 0 for EVERY provided POV variant\n"
     else:
-        pov_section = templates["pov_absent"]
+        pov_section = ""
         workflow_section = templates["workflow_static"]
         pre_submit_pov = ""
 
@@ -197,26 +200,17 @@ def run(
             bug_candidate_list=bug_candidate_list
         )
     else:
-        bug_candidate_section = templates["bug_candidates_absent"]
+        bug_candidate_section = ""
 
     diff_list = "\n".join(f"- {_md_inline(str(p))}" for p in diffs)
     if diff_list:
-        diff_section = (
-            "## Diff Files\n\n"
-            "Boot-time diff files were provided for this run:\n\n"
-            f"{diff_list}\n\n"
-            "Inspect any relevant diff files directly if they help localize the vulnerability.\n"
-        )
+        diff_section = templates["diff_present"].format(diff_list=diff_list)
     else:
         diff_section = ""
 
     seed_list = "\n".join(f"- {_md_inline(str(p))}" for p in seeds)
     if seed_list:
-        seed_section = (
-            "## Seed Files\n\n"
-            "Boot-time seed files were provided for this run:\n\n"
-            f"{seed_list}\n"
-        )
+        seed_section = templates["seed_present"].format(seed_list=seed_list)
     else:
         seed_section = ""
 
