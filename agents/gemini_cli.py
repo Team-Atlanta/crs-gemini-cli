@@ -92,6 +92,14 @@ def setup(source_dir: Path, config: dict) -> None:
     - Writes ~/.gemini/settings.json
     - Configures LiteLLM proxy via GOOGLE_GEMINI_BASE_URL + GEMINI_API_KEY
     """
+    try:
+        ver = subprocess.run(
+            ["gemini", "--version"], capture_output=True, text=True, timeout=10,
+        )
+        logger.info("Gemini CLI version: %s", ver.stdout.strip() or ver.stderr.strip())
+    except Exception as e:
+        logger.warning("Failed to get Gemini CLI version: %s", e)
+
     llm_api_url = config.get("llm_api_url", "")
     llm_api_key = config.get("llm_api_key", "")
     gemini_home = Path(config.get("gemini_home", Path.home() / ".gemini"))
