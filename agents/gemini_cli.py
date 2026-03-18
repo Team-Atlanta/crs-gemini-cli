@@ -9,6 +9,7 @@ then autonomously: analyzes evidence -> edits source -> builds via libCRS
 
 import logging
 import os
+import shutil
 import signal
 import subprocess
 import time
@@ -322,6 +323,13 @@ def run(
     except Exception as e:
         logger.error("Error running Gemini CLI: %s", e)
         return False
+
+    # Remove bundled rg binary (~5MB) before log persistence;
+    # only chat sessions and settings are useful for post-run analysis.
+    gemini_tmp_bin = Path.home() / ".gemini" / "tmp" / "bin"
+    if gemini_tmp_bin.is_dir():
+        shutil.rmtree(gemini_tmp_bin, ignore_errors=True)
+        logger.info("Cleaned up Gemini tmp/bin dir to reduce log artifact size")
 
     subprocess.run(
         ["chmod", "-R", "og+rX", str(Path.home() / ".gemini")],
