@@ -269,7 +269,8 @@ def setup_source() -> Path | None:
     download_root.mkdir(parents=True, exist_ok=True)
 
     try:
-        worktree_dir = Path(crs.download_source(SourceType.REPO, download_root))
+        crs.download_source(SourceType.TARGET_SOURCE, download_root)
+        worktree_dir = download_root
     except Exception as repo_error:
         logger.error("Failed to download repo source via libCRS: %s", repo_error)
         return None
