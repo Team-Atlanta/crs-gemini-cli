@@ -70,7 +70,6 @@ def test_run_uses_prompt_flag_for_non_interactive_mode(
         "fuzz_parse_buffer_section",
         patches_dir,
         work_dir,
-        builder="inc-builder",
     )
 
     assert result is False
