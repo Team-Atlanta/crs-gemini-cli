@@ -1,7 +1,7 @@
 name: crs-gemini-cli
 type:
   - bug-fixing
-version: 1.0.0
+version: cli-0.9.0
 docker_registry: ghcr.io/team-atlanta/crs-gemini-cli
 
 prepare_phase:
